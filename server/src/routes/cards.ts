@@ -15,6 +15,24 @@ interface Card {
   updatedAt: string;
 }
 
+interface CardResponse {
+  id: string;
+  title: string;
+  description: string;
+  columnId: string;
+  position: number;
+  completed: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+function toResponse(card: Card): CardResponse {
+  return {
+    ...card,
+    completed: card.completed === 1,
+  };
+}
+
 router.get('/columns/:columnId/cards', (req: Request, res: Response) => {
   const db = getDb();
   const { columnId } = req.params;
@@ -26,7 +44,7 @@ router.get('/columns/:columnId/cards', (req: Request, res: Response) => {
   }
 
   const cards = db.prepare('SELECT * FROM cards WHERE columnId = ? ORDER BY position ASC').all(columnId) as Card[];
-  res.json({ cards });
+  res.json({ cards: cards.map(toResponse) });
 });
 
 router.post('/columns/:columnId/cards', (req: Request, res: Response) => {
@@ -62,7 +80,7 @@ router.post('/columns/:columnId/cards', (req: Request, res: Response) => {
     'INSERT INTO cards (id, title, description, columnId, position, completed, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
   ).run(card.id, card.title, card.description, card.columnId, card.position, card.completed, card.createdAt, card.updatedAt);
 
-  res.status(201).json({ card });
+  res.status(201).json({ card: toResponse(card) });
 });
 
 router.put('/cards/reorder', (req: Request, res: Response) => {
@@ -88,20 +106,14 @@ router.put('/cards/reorder', (req: Request, res: Response) => {
   const transaction = db.transaction(() => {
     shiftUpStmt.run(now, card.columnId, card.position);
 
-    let adjustedPosition = position;
-    if (fromColumnId === toColumnId && position > card.position) {
-      adjustedPosition -= 1;
-    }
-
-    shiftDownStmt.run(now, toColumnId, adjustedPosition);
-    updateCardStmt.run(toColumnId, adjustedPosition, now, cardId);
+    shiftDownStmt.run(now, toColumnId, position);
+    updateCardStmt.run(toColumnId, position, now, cardId);
   });
 
   transaction();
 
   const updated = db.prepare('SELECT * FROM cards WHERE id = ?').get(cardId) as Card;
-  res.json({ card: updated });
-});
+  res.json({ card: toResponse(updated) });});
 
 router.put('/cards/:id', (req: Request, res: Response) => {
   const db = getDb();
@@ -121,7 +133,7 @@ router.put('/cards/:id', (req: Request, res: Response) => {
   db.prepare('UPDATE cards SET title = ?, description = ?, updatedAt = ? WHERE id = ?').run(newTitle, newDescription, now, id);
 
   const updated = db.prepare('SELECT * FROM cards WHERE id = ?').get(id) as Card;
-  res.json({ card: updated });
+  res.json({ card: toResponse(updated) });
 });
 
 router.patch('/cards/:id/toggle', (req: Request, res: Response) => {
@@ -140,7 +152,7 @@ router.patch('/cards/:id/toggle', (req: Request, res: Response) => {
   db.prepare('UPDATE cards SET completed = ?, updatedAt = ? WHERE id = ?').run(newCompleted, now, id);
 
   const updated = db.prepare('SELECT * FROM cards WHERE id = ?').get(id) as Card;
-  res.json({ card: updated });
+  res.json({ card: toResponse(updated) });
 });
 
 router.delete('/cards/:id', (req: Request, res: Response) => {
