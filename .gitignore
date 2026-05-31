@@ -1,0 +1,6 @@
+node_modules/
+.acp/workspace.json
+.acp/agents/
+kanban.db
+dist/
+.env

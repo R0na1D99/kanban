@@ -1,0 +1,7 @@
+{
+  "workspace": "kanban",
+  "registration_token": "rg_ade574b6",
+  "git_enabled": true,
+  "review_mode": "auto",
+  "branch": "feat/kanban"
+}
